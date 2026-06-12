@@ -1,10 +1,14 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
+import { Pool } from "pg";
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
+const connectionString = process.env.DATABASE_URL || "";
+const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false }
 });
+const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
@@ -55,6 +59,57 @@ async function main() {
     },
   });
 
+  // ─── MEDICINES ─────────────────────────────────────────
+
+  console.log("Seeding government-approved medicines...");
+  const paracetamol = await prisma.medicine.upsert({
+    where: { name: "Paracetamol" },
+    update: {},
+    create: { name: "Paracetamol", unit: "mg", maxDosePerDay: 4000, maxDurationDays: 7 },
+  });
+
+  const amoxicillin = await prisma.medicine.upsert({
+    where: { name: "Amoxicillin" },
+    update: {},
+    create: { name: "Amoxicillin", unit: "mg", maxDosePerDay: 1500, maxDurationDays: 14 },
+  });
+
+  const azithromycin = await prisma.medicine.upsert({
+    where: { name: "Azithromycin" },
+    update: {},
+    create: { name: "Azithromycin", unit: "mg", maxDosePerDay: 500, maxDurationDays: 5 },
+  });
+
+  const cetirizine = await prisma.medicine.upsert({
+    where: { name: "Cetirizine" },
+    update: {},
+    create: { name: "Cetirizine", unit: "mg", maxDosePerDay: 10, maxDurationDays: 30 },
+  });
+
+  const ibuprofen = await prisma.medicine.upsert({
+    where: { name: "Ibuprofen" },
+    update: {},
+    create: { name: "Ibuprofen", unit: "mg", maxDosePerDay: 1200, maxDurationDays: 7 },
+  });
+
+  const metformin = await prisma.medicine.upsert({
+    where: { name: "Metformin" },
+    update: {},
+    create: { name: "Metformin", unit: "mg", maxDosePerDay: 2500, maxDurationDays: 365 },
+  });
+
+  const omeprazole = await prisma.medicine.upsert({
+    where: { name: "Omeprazole" },
+    update: {},
+    create: { name: "Omeprazole", unit: "mg", maxDosePerDay: 40, maxDurationDays: 14 },
+  });
+
+  const ciprofloxacin = await prisma.medicine.upsert({
+    where: { name: "Ciprofloxacin" },
+    update: {},
+    create: { name: "Ciprofloxacin", unit: "mg", maxDosePerDay: 1500, maxDurationDays: 14 },
+  });
+
   // ─── PRESCRIPTION ────────────────────────────────────
 
   const prescription = await prisma.prescription.upsert({
@@ -71,17 +126,17 @@ async function main() {
       items: {
         create: [
           {
-            medicineName: "Paracetamol 500mg",
-            dosage: "500mg",
-            duration: "5 days",
-            quantity: 10,
+            medicineId: paracetamol.id,
+            dosageAmount: 500,
+            frequencyPerDay: 2,
+            durationDays: 5,
             instructions: "Take after meals, twice daily",
           },
           {
-            medicineName: "Amoxicillin 250mg",
-            dosage: "250mg",
-            duration: "7 days",
-            quantity: 14,
+            medicineId: amoxicillin.id,
+            dosageAmount: 250,
+            frequencyPerDay: 3,
+            durationDays: 7,
             instructions: "Take one capsule every 8 hours",
           },
         ],

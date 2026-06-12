@@ -7,7 +7,73 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─── ENUMS ────────────────────────────────────────────
+model User {
+  id                                         String         @id @default(uuid())
+  name                                       String
+  email                                      String         @unique
+  passwordHash                               String?
+  role                                       Role
+  walletAddress                              String?        @unique
+  createdAt                                  DateTime       @default(now())
+  AuditLog                                   AuditLog[]
+  Prescription_Prescription_doctorIdToUser   Prescription[] @relation("Prescription_doctorIdToUser")
+  Prescription_Prescription_patientIdToUser  Prescription[] @relation("Prescription_patientIdToUser")
+  Prescription_Prescription_pharmacyIdToUser Prescription[] @relation("Prescription_pharmacyIdToUser")
+
+  @@map("User")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  role      Role
+  action    String
+  entityId  String
+  timestamp DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id])
+
+  @@index([entityId])
+  @@index([timestamp])
+  @@index([userId])
+}
+
+model Prescription {
+  id                                 String             @id @default(cuid())
+  prescriptionId                     String             @unique
+  doctorId                           String
+  patientId                          String
+  ipfsHash                           String
+  txHash                             String?
+  status                             PrescriptionStatus @default(CREATED)
+  expiryDate                         DateTime
+  createdAt                          DateTime           @default(now())
+  pharmacyId                         String?
+  dispensedAt                        DateTime?
+  User_Prescription_doctorIdToUser   User               @relation("Prescription_doctorIdToUser", fields: [doctorId], references: [id])
+  User_Prescription_patientIdToUser  User               @relation("Prescription_patientIdToUser", fields: [patientId], references: [id])
+  User_Prescription_pharmacyIdToUser User?              @relation("Prescription_pharmacyIdToUser", fields: [pharmacyId], references: [id])
+  items                              PrescriptionItem[]
+
+  @@index([doctorId])
+  @@index([patientId])
+  @@index([pharmacyId])
+  @@index([status])
+}
+
+model PrescriptionItem {
+  id               String  @id @default(cuid())
+  prescriptionId   String
+  medicineId       String
+  dosageAmount     Float              // 500
+  frequencyPerDay  Int                // 3
+  durationDays     Int                // 5
+  instructions     String?            // "after meals"
+  prescription     Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicine         Medicine     @relation(fields: [medicineId], references: [id])
+
+  @@index([prescriptionId])
+  @@index([medicineId])
+}
 
 enum Role {
   CITIZEN
@@ -23,73 +89,12 @@ enum PrescriptionStatus {
   EXPIRED
 }
 
-// ─── MODELS ───────────────────────────────────────────
-
-model User {
-  id            String   @id @default(cuid())
-  name          String
-  email         String   @unique
-  role          Role
-  walletAddress String?  @unique
-  createdAt     DateTime @default(now())
-
-  prescriptionsAsDoctor  Prescription[] @relation("DoctorPrescriptions")
-  prescriptionsAsPatient Prescription[] @relation("PatientPrescriptions")
-  dispensedByPharmacy    Prescription[] @relation("PharmacyDispensed")
-  auditLogs              AuditLog[]
-}
-
-model Prescription {
-  id             String             @id @default(cuid())
-  prescriptionId String             @unique
-  doctorId       String
-  patientId      String
-  ipfsHash       String
-  txHash         String?
-  status         PrescriptionStatus @default(CREATED)
-  expiryDate     DateTime
-  createdAt      DateTime           @default(now())
-
-  // Dispensing fields (merged from DispenseRecord)
-  pharmacyId     String?
-  dispensedAt    DateTime?
-
-  doctor         User               @relation("DoctorPrescriptions", fields: [doctorId], references: [id])
-  patient        User               @relation("PatientPrescriptions", fields: [patientId], references: [id])
-  pharmacy       User?              @relation("PharmacyDispensed", fields: [pharmacyId], references: [id])
-  items          PrescriptionItem[]
-
-  @@index([doctorId])
-  @@index([patientId])
-  @@index([pharmacyId])
-  @@index([status])
-}
-
-model PrescriptionItem {
-  id             String @id @default(cuid())
-  prescriptionId String
-  medicineName   String
-  dosage         String
-  duration       String
-  quantity       Int
-  instructions   String?
-
-  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
-
-  @@index([prescriptionId])
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  role      Role
-  action    String
-  entityId  String
-  timestamp DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([entityId])
-  @@index([timestamp])
+model Medicine {
+  id                String             @id @default(cuid())
+  name              String             @unique
+  unit              String             @default("mg")
+  maxDosePerDay     Float
+  maxDurationDays   Int                @default(30)
+  createdAt         DateTime           @default(now())
+  prescriptionItems PrescriptionItem[]
 }
