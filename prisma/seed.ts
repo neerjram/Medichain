@@ -1,0 +1,150 @@
+import "dotenv/config";
+import { prisma } from "../lib/prisma";
+
+
+async function main() {
+  console.log("Seeding MediChain demo data...\n");
+
+  // ─── USERS ────────────────────────────────────────────
+
+  const citizen = await prisma.user.upsert({
+    where: { email: "patient@medichain.demo" },
+    update: {},
+    create: {
+      name: "Rahul Sharma",
+      email: "patient@medichain.demo",
+      role: "CITIZEN",
+      walletAddress: "0x1111111111111111111111111111111111111111",
+    },
+  });
+
+  const doctor = await prisma.user.upsert({
+    where: { email: "doctor@medichain.demo" },
+    update: {},
+    create: {
+      name: "Dr. Priya Mehta",
+      email: "doctor@medichain.demo",
+      role: "DOCTOR",
+      walletAddress: "0x2222222222222222222222222222222222222222",
+    },
+  });
+
+  const pharmacy = await prisma.user.upsert({
+    where: { email: "pharmacy@medichain.demo" },
+    update: {},
+    create: {
+      name: "Apollo Pharmacy — Koramangala",
+      email: "pharmacy@medichain.demo",
+      role: "PHARMACY",
+      walletAddress: "0x3333333333333333333333333333333333333333",
+    },
+  });
+
+  const regulator = await prisma.user.upsert({
+    where: { email: "regulator@medichain.demo" },
+    update: {},
+    create: {
+      name: "Gov. Health Audit Officer",
+      email: "regulator@medichain.demo",
+      role: "REGULATOR",
+    },
+  });
+
+  // ─── MEDICINES ────────────────────────────────────────
+
+  const paracetamol = await prisma.medicine.upsert({
+    where: { name: "Paracetamol" },
+    update: {},
+    create: {
+      id: "demo-medicine-id-1",
+      name: "Paracetamol",
+      unit: "mg",
+      maxDosePerDay: 1000,
+      maxDurationDays: 10,
+    },
+  });
+
+  const amoxicillin = await prisma.medicine.upsert({
+    where: { name: "Amoxicillin" },
+    update: {},
+    create: {
+      id: "demo-medicine-id-2",
+      name: "Amoxicillin",
+      unit: "mg",
+      maxDosePerDay: 750,
+      maxDurationDays: 14,
+    },
+  });
+
+  // ─── PRESCRIPTION ────────────────────────────────────
+
+  const prescription = await prisma.prescription.upsert({
+    where: { prescriptionId: "0xabc123demo00000000000000000000000000001" },
+    update: {},
+    create: {
+      id: "demo-prescription-id-1",
+      prescriptionId: "0xabc123demo00000000000000000000000000001",
+      doctorId: doctor.id,
+      patientId: citizen.id,
+      ipfsHash: "QmDemoPrescriptionHash123456789abcdef",
+      txHash: "0xdemo_tx_hash_prescription_created",
+      status: "CREATED",
+      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      PrescriptionItem: {
+        create: [
+          {
+            id: "demo-item-id-1",
+            medicineId: paracetamol.id,
+            dosageAmount: 500.0,
+            frequencyPerDay: 2,
+            durationDays: 5,
+            instructions: "Take after meals, twice daily",
+          },
+          {
+            id: "demo-item-id-2",
+            medicineId: amoxicillin.id,
+            dosageAmount: 250.0,
+            frequencyPerDay: 3,
+            durationDays: 7,
+            instructions: "Take one capsule every 8 hours",
+          },
+        ],
+      },
+    },
+    include: { PrescriptionItem: true },
+  });
+
+  await prisma.auditLog.upsert({
+    where: { id: "demo-audit-log-id-1" },
+    update: {},
+    create: {
+      id: "demo-audit-log-id-1",
+      userId: doctor.id,
+      role: "DOCTOR",
+      action: "PRESCRIPTION_CREATED",
+      entityId: prescription.id,
+    },
+  });
+
+
+  // ─── SUMMARY ─────────────────────────────────────────
+
+  console.log("Users:");
+  console.log(`  Citizen   → ${citizen.email}`);
+  console.log(`  Doctor    → ${doctor.email}`);
+  console.log(`  Pharmacy  → ${pharmacy.email}`);
+  console.log(`  Regulator → ${regulator.email}`);
+  console.log(`\nPrescription: ${prescription.prescriptionId}`);
+  console.log(`  Items: ${prescription.PrescriptionItem.length}`);
+  console.log(`  txHash: ${prescription.txHash ?? "N/A"}`);
+  console.log("\nSeed complete.");
+}
+
+main()
+  .catch((error) => {
+    console.error("Seed failed:", error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
